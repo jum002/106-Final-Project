@@ -1,4 +1,4 @@
-# EECS106 Final Project
+# 106 Final Project
 
 ## Setup
 
