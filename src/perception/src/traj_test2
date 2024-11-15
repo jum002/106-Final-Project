@@ -128,6 +128,11 @@ class ObjectDetector:
         ax.set_title("3D Ball Trajectory")
         ax.legend()
 
+        # Set plot dimensions to 1m x 1m x 1m
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_zlim(0, 1)
+
         plt.show()
 
 if __name__ == '__main__':
