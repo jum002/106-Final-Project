@@ -7,7 +7,6 @@ from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import time
 import tf
 from geometry_msgs.msg import Point
 
@@ -35,6 +34,7 @@ class ObjectDetector:
 
         self.launch_detected = False
         self.threshold = 0.1  # Threshold for launch detection
+        self.g = 9.81  # Gravitational acceleration (m/s^2)
 
         rospy.on_shutdown(self.visualize_trajectory)
         rospy.spin()
@@ -93,15 +93,36 @@ class ObjectDetector:
             if self.launch_detected:
                 self.trajectory.append((camera_link_x, camera_link_y, camera_link_z))
 
-                # Predict trajectory based on current data (simple linear model for demonstration)
+                # Predict trajectory based on 3D projectile motion
                 if len(self.trajectory) > 1:
-                    initial_point = self.trajectory[0]
-                    velocity = np.subtract(current_position, initial_point)
-                    for t in range(1, 100):  # Predict 100 steps
-                        predicted_point = initial_point + velocity * t * (1 / 30)  # Time interval is 1/30 sec
-                        self.predicted_trajectory.append(predicted_point)
+                    self.predict_trajectory()
 
             self.last_position = current_position
+
+    def predict_trajectory(self):
+        if len(self.trajectory) < 2:
+            return
+
+        p0 = np.array(self.trajectory[0])
+        p1 = np.array(self.trajectory[1])
+        dt = 1 / 30  # Time interval between frames (30 FPS)
+
+        # Calculate initial velocity (v0 = (p1 - p0) / dt)
+        velocity = (p1 - p0) / dt
+
+        self.predicted_trajectory.clear()
+        t = 0  # Start time
+        while True:
+            # 3D projectile motion equations
+            x = p0[0] + velocity[0] * t
+            y = p0[1] + velocity[1] * t
+            z = p0[2] + velocity[2] * t - 0.5 * self.g * t**2
+
+            if z < 0:  # Stop prediction when the ball hits the ground
+                break
+
+            self.predicted_trajectory.append((x, y, z))
+            t += dt  # Increment time
 
     def visualize_trajectory(self):
         if not self.trajectory or not self.predicted_trajectory:
