@@ -30,6 +30,7 @@ class BallTrajectoryPredictor:
         self.depth_image_sub = rospy.Subscriber("/camera/aligned_depth_to_color/image_raw", Image, self.depth_image_callback)
         self.camera_info_sub = rospy.Subscriber("/camera/color/camera_info", CameraInfo, self.camera_info_callback)
         self.point_pub = rospy.Publisher("goal_point", Point, queue_size=10)
+        self.image_pub = rospy.Publisher('detected_cup', Image, queue_size=10)
 
         # Camera intrinsics
         self.fx = None
@@ -43,7 +44,7 @@ class BallTrajectoryPredictor:
 
         # Launch detection
         self.launch_detected = False
-        self.launch_threshold = 0.05  # Minimum displacement in meters to consider the ball launched
+        self.launch_threshold = 0.1  # Minimum displacement in meters to consider the ball launched
 
         rospy.spin()
 
@@ -84,30 +85,50 @@ class BallTrajectoryPredictor:
             return
 
         hsv = cv2.cvtColor(self.cv_color_image, cv2.COLOR_BGR2HSV)
-        lower_hsv = np.array([0, 91, 43])
-        upper_hsv = np.array([5, 255, 255])
+        lower_hsv = np.array([35, 51, 69]) # TODO: Define lower HSV values for cup color
+        upper_hsv = np.array([88, 255, 223]) # TODO: Define upper HSV values for cup color
+        # lower_hsv = np.array([0, 91, 43])
+        # upper_hsv = np.array([5, 255, 255])
 
         mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
         y_coords, x_coords = np.nonzero(mask)
 
         if len(x_coords) == 0 or len(y_coords) == 0:
-            rospy.loginfo("No points detected. Check your HSV filter.")
+            rospy.loginfo("No points derospy.loginfotected. Check your HSV filter.")
             return
 
+        # Calculate the center of the detected region by 
         center_x = int(np.mean(x_coords))
         center_y = int(np.mean(y_coords))
-        depth = self.cv_depth_image[center_y, center_x] / 1000.0  # Convert depth to meters
 
-        if depth == 0:
-            rospy.logwarn("Invalid depth value at the center (zero).")
-            return
+        # Fetch the depth value at the center
+        depth = self.cv_depth_image[center_y, center_x]
 
         camera_x, camera_y, camera_z = self.pixel_to_point(center_x, center_y, depth)
+        camera_link_x, camera_link_y, camera_link_z = camera_z, -camera_x, -camera_y
+        # Convert from mm to m
+        camera_link_x /= 1000
+        camera_link_y /= 1000
+        camera_link_z /= 1000
+
+        camera_x, camera_y, camera_z = camera_link_x, camera_link_y, camera_link_z
         current_time = rospy.get_time()
 
-        # Append the point and timestamp
+        # Append the point and timestamrospy.loginfop
         self.actual_trajectory.append([camera_x, camera_y, camera_z])
         self.timestamps.append(current_time)
+
+        # Publish the transformed point
+        self.point_pub.publish(Point(camera_x, camera_y, camera_z))
+
+        # Overlay cup points on color image for visualization
+        cup_img = self.cv_color_image.copy()
+        cup_img[y_coords, x_coords] = [0, 0, 255]  # Highlight cup points in red
+        cv2.circle(cup_img, (center_x, center_y), 5, [0, 255, 0], -1)  # Draw green circle at center
+        
+        # Convert to ROS Image message and publish
+        ros_image = self.bridge.cv2_to_imgmsg(cup_img, "bgr8")
+        self.image_pub.publish(ros_image)
 
         if len(self.actual_trajectory) > 1:
             last_point = self.actual_trajectory[-2]
@@ -118,7 +139,7 @@ class BallTrajectoryPredictor:
             # Detect launch based on displacement
             if not self.launch_detected and displacement > self.launch_threshold:
                 self.launch_detected = True
-                rospy.loginfo("Ball launch detected!")
+                print("Ball launch detected!")
 
             # Calculate initial velocity after launch
             if self.launch_detected and len(self.actual_trajectory) > 2:
@@ -128,7 +149,7 @@ class BallTrajectoryPredictor:
                 vz = (camera_z - last_point[2]) / (current_time - last_time)
 
                 self.initial_velocity = [vx, vy, vz]
-                rospy.loginfo(f"Estimated initial velocity: ({vx:.2f}, {vy:.2f}, {vz:.2f})")
+                print(f"Estimated initial velocity: ({vx:.2f}, {vy:.2f}, {vz:.2f})")
 
         # Publish the detected point
         self.point_pub.publish(Point(camera_x, camera_y, camera_z))
@@ -154,12 +175,21 @@ class BallTrajectoryPredictor:
 
         # Convert actual trajectory to numpy arrays
         actual_points = np.array(self.actual_trajectory)
+        actual_times = np.array(self.timestamps) - self.timestamps[0]
 
         # Plot the actual and predicted trajectories
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(actual_points[:, 0], actual_points[:, 1], actual_points[:, 2], label="Actual Trajectory", c='r')
+        scatter = ax.scatter(
+            actual_points[:, 0], actual_points[:, 1], actual_points[:, 2], 
+            c=actual_times, cmap='viridis', label="Actual Trajectory"
+        )
+        cbar = fig.colorbar(scatter, ax=ax, label='Time (s)')
+
         ax.plot(x_pred, y_pred, z_pred, label="Predicted Trajectory", c='b')
+        for i in range(0, len(t_pred), 10):
+            ax.text(x_pred[i], y_pred[i], z_pred[i], f"{t_pred[i]:.1f}s", color='red')
+
         ax.set_xlabel("X (Depth)")
         ax.set_ylabel("Y (Left)")
         ax.set_zlabel("Z (Up)")

@@ -83,11 +83,11 @@ class ObjectDetector:
         # Run `python hsv_color_thresholder.py` and tune the bounds so you only see your cup
         # update lower_hsv and upper_hsv directly
 
-        # lower_hsv = np.array([35, 51, 69]) # TODO: Define lower HSV values for cup color
-        # upper_hsv = np.array([88, 255, 223]) # TODO: Define upper HSV values for cup color
+        lower_hsv = np.array([35, 51, 69]) # TODO: Define lower HSV values for cup color
+        upper_hsv = np.array([88, 255, 223]) # TODO: Define upper HSV values for cup color
 
-        lower_hsv = np.array([0, 91, 43]) # TODO: Define lower HSV values for cup color
-        upper_hsv = np.array([5, 255, 255])        
+        # lower_hsv = np.array([0, 91, 43]) # TODO: Define lower HSV values for cup color
+        # upper_hsv = np.array([5, 255, 255])        
 
         # TODO: Threshold the image to get only cup colors
         # HINT: Lookup cv2.inRange()
