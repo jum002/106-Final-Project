@@ -6,13 +6,10 @@ import numpy as np
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 import matplotlib.pyplot as plt
-import os
+from mpl_toolkits.mplot3d import Axes3D
 import time
 import tf
 from geometry_msgs.msg import Point
-from std_msgs.msg import Header
-
-PLOTS_DIR = os.path.join(os.getcwd(), 'plots')
 
 class ObjectDetector:
     def __init__(self):
@@ -39,6 +36,7 @@ class ObjectDetector:
         self.launch_detected = False
         self.threshold = 0.1  # Threshold for launch detection
 
+        rospy.on_shutdown(self.visualize_trajectory)
         rospy.spin()
 
     def camera_info_callback(self, msg):
@@ -105,11 +103,11 @@ class ObjectDetector:
 
             self.last_position = current_position
 
-            # Visualization
-            self.visualize_trajectory()
-
     def visualize_trajectory(self):
-        plt.figure(figsize=(10, 6))
+        if not self.trajectory or not self.predicted_trajectory:
+            print("No trajectory data to visualize.")
+            return
+
         actual_x = [p[0] for p in self.trajectory]
         actual_y = [p[1] for p in self.trajectory]
         actual_z = [p[2] for p in self.trajectory]
@@ -118,18 +116,19 @@ class ObjectDetector:
         predicted_y = [p[1] for p in self.predicted_trajectory]
         predicted_z = [p[2] for p in self.predicted_trajectory]
 
-        plt.plot(actual_x, actual_y, label="Actual Trajectory", marker='o')
-        plt.plot(predicted_x, predicted_y, label="Predicted Trajectory", linestyle='--')
-        plt.xlabel("X")
-        plt.ylabel("Y")
-        plt.legend()
-        plt.title("Ball Trajectory")
-        plt.grid()
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
 
-        plt_path = os.path.join(PLOTS_DIR, f"trajectory_{time.time()}.png")
-        plt.savefig(plt_path)
-        print(f"Trajectory plot saved to {plt_path}")
-        plt.close()
+        ax.plot(actual_x, actual_y, actual_z, label="Actual Trajectory", marker='o')
+        ax.plot(predicted_x, predicted_y, predicted_z, label="Predicted Trajectory", linestyle='--')
+
+        ax.set_xlabel("X (m)")
+        ax.set_ylabel("Y (m)")
+        ax.set_zlabel("Z (m)")
+        ax.set_title("3D Ball Trajectory")
+        ax.legend()
+
+        plt.show()
 
 if __name__ == '__main__':
     ObjectDetector()
