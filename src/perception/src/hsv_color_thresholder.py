@@ -19,7 +19,7 @@ cv2.setTrackbarPos('SMax', 'image', 255)
 cv2.setTrackbarPos('VMax', 'image', 255)
 
 # Initialize variables
-hMin = sMin = vMin = hMax = sMax = vMax /home/cc/ee106a/fa24/class/ee106a-agn/ros_workspaces/lab8/src= 0
+hMin = sMin = vMin = hMax = sMax = vMax = 0
 phMin = psMin = pvMin = phMax = psMax = pvMax = 0
 
 # subscribes to the image topic that has the rgb images from the realsense
@@ -43,7 +43,8 @@ class ImageSubscriber:
         hMin = cv2.getTrackbarPos('HMin', 'image')
         sMin = cv2.getTrackbarPos('SMin', 'image')
         vMin = cv2.getTrackbarPos('VMin', 'image')
-        hMax = cv2.getTrackbarPos('HMax', 'image')
+        hMax = cv2.getTrackbarPo lower_hsv = np.array([35, 51, 69]) # TODO: Define lower HSV values for cup color
+        # upper_hsv = np.array([88, 255, 223])s('HMax', 'image')
         sMax = cv2.getTrackbarPos('SMax', 'image')
         vMax = cv2.getTrackbarPos('VMax', 'image')
         # Set minimum and maximum HSV values for thresholding
