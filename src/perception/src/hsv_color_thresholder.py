@@ -43,7 +43,7 @@ class ImageSubscriber:
         hMin = cv2.getTrackbarPos('HMin', 'image')
         sMin = cv2.getTrackbarPos('SMin', 'image')
         vMin = cv2.getTrackbarPos('VMin', 'image')
-        hMax = cv2.getTrackbarPo lower_hsv = np.array([35, 51, 69]) # TODO: Define lower HSV values for cup color
+        hMax = cv2.getTrackbarPos('HMax', 'image')
         # upper_hsv = np.array([88, 255, 223])s('HMax', 'image')
         sMax = cv2.getTrackbarPos('SMax', 'image')
         vMax = cv2.getTrackbarPos('VMax', 'image')

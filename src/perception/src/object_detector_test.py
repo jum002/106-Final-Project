@@ -70,7 +70,7 @@ class ObjectDetector:
 
     def depth_image_callback(self, msg):
         try:
-            # Convert the ROS Image message to an OpenCV image (16UC1 format)
+            # Convert the ROS Image melower_hsv = np.array([87, 151, 36])
             self.cv_depth_image = self.bridge.imgmsg_to_cv2(msg, "16UC1")
 
         except Exception as e:
@@ -79,12 +79,20 @@ class ObjectDetector:
     def process_images(self):
         # Convert the color image to HSV color space
         hsv = cv2.cvtColor(self.cv_color_image, cv2.COLOR_BGR2HSV)
-        # TODO: Define range for cup color in HSV
+        # TODO: Define range for cup color in HSVdepth_width:=424 depth_height:=240
         # Run `python hsv_color_thresholder.py` and tune the bounds so you only see your cup
         # update lower_hsv and upper_hsv directly
 
-        lower_hsv = np.array([35, 51, 69]) # TODO: Define lower HSV values for cup color
-        upper_hsv = np.array([88, 255, 223]) # TODO: Define upper HSV values for cup color
+        # lower_hsv = np.array([35, 51, 69]) # TODO: Define lower HSV values for cup color
+        # upper_hsv = np.array([88, 255, 223]) # TODO: Define upper HSV values for cup color
+
+        # light green
+        lower_hsv = np.array([50, 80, 150])
+        upper_hsv = np.array([80, 255, 255])
+
+        # dark green
+        # lower_hsv = np.array([87, 151, 36])
+        # upper_hsv = np.array([93, 255, 255])
 
         # lower_hsv = np.array([0, 91, 43]) # TODO: Define lower HSV values for cup color
         # upper_hsv = np.array([5, 255, 255])        
@@ -92,10 +100,14 @@ class ObjectDetector:
         # TODO: Threshold the image to get only cup colors
         # HINT: Lookup cv2.inRange()
         mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
+        mask_depth = np.zeros(self.cv_depth_image.shape)
+        mask_depth[self.cv_depth_image < 3000] = 1.0
+        # plt.imshow(mask_depth, cmap='gray')
+        # plt.show()
 
         # TODO: Get the coordinates of the cup points on the mask
         # HINT: Lookup np.nonzero()
-        y_coords, x_coords = np.nonzero(mask)
+        y_coords, x_coords = np.nonzero(mask * mask_depth)
 
         # If there are no detected points, exit
         if len(x_coords) == 0 or len(y_coords) == 0:

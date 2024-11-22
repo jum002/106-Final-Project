@@ -38,18 +38,18 @@ class ObjectDetector:
         self.velocities = []
 
         self.launch_detected = False
-        self.threshold = 0.2  # Threshold for launch detection
+        self.threshold = 0.05  # Threshold for launch detection
         self.g = 9.81  # Gravitational acceleration (m/s^2)
-        self.predict_duration = 2 # in seconds
+        self.predict_duration = 0.5 # in seconds
         self.t_plot = 0
-        self.dt_frame = 6
+        self.dt_frame = 2
 
         rospy.spin()
 
     def camera_info_callback(self, msg):
         self.fx = msg.K[0]
         self.fy = msg.K[4]
-        self.cx = msg.K[2]
+        self.cx = msg.K[2]      
         self.cy = msg.K[5]
 
     def pixel_to_point(self, u, v, depth):
@@ -73,20 +73,24 @@ class ObjectDetector:
         except Exception as e:
             print("Error:", e)
 
-    def update_current_velocity(self, dt_frame=6):
+    def update_current_velocity(self):
         assert(self.curr_position is not None and self.prev_position is not None)
-        if self.global_time % dt_frame == 0:
-            self.current_velocity = (self.curr_position - self.prev_position) * (dt_frame / self.FPS)
+        if self.global_time % self.dt_frame == 0:
+            self.current_velocity = (self.curr_position - self.prev_position) * (self.dt_frame / self.FPS)
             self.prev_position = self.curr_position
 
     def process_images(self):
         hsv = cv2.cvtColor(self.cv_color_image, cv2.COLOR_BGR2HSV)
 
-        lower_hsv = np.array([0, 91, 43])
-        upper_hsv = np.array([5, 255, 255])
+        # light green
+        lower_hsv = np.array([50, 80, 150])
+        upper_hsv = np.array([80, 255, 255])
 
         mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
-        y_coords, x_coords = np.nonzero(mask)
+        mask_depth = np.zeros(self.cv_depth_image.shape)
+        mask_depth[self.cv_depth_image < 3000] = 1.0
+
+        y_coords, x_coords = np.nonzero(mask * mask_depth)
 
         if len(x_coords) == 0 or len(y_coords) == 0:
             return
@@ -107,11 +111,11 @@ class ObjectDetector:
         camera_link_z /= 1000
 
         current_position = np.array([camera_link_x, camera_link_y, camera_link_z])
-        self.trajectory.append(current_position)
+        # self.trajectory.append(current_position)
         print(current_position)
-        if self.global_time > 30 * 10:
-            self.visualize_actual_trajectory()
-        return
+        # if self.global_time > 30 * 10:
+        #     self.visualize_actual_trajectory()
+        # return
 
         self.curr_position = current_position
         if self.prev_position is None:
@@ -121,7 +125,7 @@ class ObjectDetector:
         self.update_current_velocity() 
 
         # detect start trajectory prediction (if velocity is greater than certain threshold)
-        if not self.launch_detected and self.current_velocity is not None and \
+        if not self.launch_detected and np.abs(np.sum(self.curr_position)) > 0.1 and self.current_velocity is not None and \
                 np.linalg.norm(self.current_velocity) > self.threshold:
             self.launch_detected = True
             print("Launch detected!")
@@ -129,16 +133,17 @@ class ObjectDetector:
             self.velocities.append(self.current_velocity)
             self.predict_trajectory()
 
-        if self.launch_detected:
+        if self.launch_detected and np.abs(np.sum(self.curr_position)) > 0.1: 
             self.trajectory.append(self.curr_position)
             self.t_plot += self.dt_frame / self.FPS
 
         if self.t_plot > self.predict_duration:
+            print("here")
             self.visualize_trajectory()
 
 
-    def predict_trajectory(self, dt_frame=6):
-        dt = dt_frame / self.FPS  # Time interval between frames (30 FPS)
+    def predict_trajectory(self):
+        dt = self.dt_frame / self.FPS  # Time interval between frames (30 FPS)
         t = 0  # Start time
         while t < self.predict_duration:
             # 3D projectile motion equations
@@ -148,7 +153,7 @@ class ObjectDetector:
             self.predicted_trajectory.append((x, y, z))
             t += dt  # Increment time
 
-        self.visualize_trajectory()
+        # self.visualize_trajectory()
 
     def visualize_actual_trajectory(self):
         actual_x = [p[0] for p in self.trajectory] # rosrun perception traj_test2.py
