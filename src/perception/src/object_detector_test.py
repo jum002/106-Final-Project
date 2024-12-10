@@ -38,6 +38,7 @@ class ObjectDetector:
         self.tf_listener = tf.TransformListener()  # Create a TransformListener object
 
         self.point_pub = rospy.Publisher("goal_point", Point, queue_size=10)
+        self.point_stamped_pub = rospy.Publisher("goal_point_stamped", PointStamped, queue_size=10)
         self.image_pub = rospy.Publisher('detected_cup', Image, queue_size=10)
 
         rospy.spin()
@@ -131,9 +132,19 @@ class ObjectDetector:
 
             # Convert the (X, Y, Z) coordinates from camera frame to odom frame
             try:
-                print("Publishing goal point: ", camera_link_x, camera_link_y, camera_link_z)
+                self.tf_listener.waitForTransform("/base", "/camera_link", rospy.Time(), rospy.Duration(10.0))
+                point_base = self.tf_listener.transformPoint("/base", PointStamped(header=Header(stamp=rospy.Time(), frame_id="camera_link"), point=Point(camera_link_x, camera_link_y, camera_link_z)))
+                print("Publishing goal point: ", point_base.point.x + 0.6, point_base.point.y, point_base.point.z - 0.1)
+                
                 # Publish the transformed point
-                self.point_pub.publish(Point(camera_link_x, camera_link_y, camera_link_z))
+                point = Point(point_base.point.x + 0.6, point_base.point.y, point_base.point.z - 0.1)
+                self.point_pub.publish(point)
+
+                point_stamped = PointStamped()
+                point_stamped.header.stamp = rospy.Time.now()  # Get the current timestamp
+                point_stamped.header.frame_id = "base"  # Set the frame of reference
+                point_stamped.point = point  # Assign the Point to the PointStamped
+                self.point_stamped_pub.publish(point_stamped)
 
                 # Overlay cup points on color image for visualization
                 cup_img = self.cv_color_image.copy()
